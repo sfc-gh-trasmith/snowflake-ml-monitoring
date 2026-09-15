@@ -1,0 +1,18 @@
+[project]
+name = "snowflake-ml-monitoring"
+version = "0.1.0"
+description = "ML model monitoring examples for Snowflake: built-in monitors, custom metrics, and gateway A/B testing"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "snowflake-ml-python>=1.8.0",
+    "snowflake-snowpark-python",
+    "scikit-learn",
+    "xgboost",
+    "pandas",
+    "numpy",
+    "scipy",
+    "requests",
+    "PyJWT",
+    "cryptography",
+]
