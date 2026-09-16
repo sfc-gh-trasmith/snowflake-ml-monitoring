@@ -40,8 +40,8 @@ from sklearn.model_selection import train_test_split
 from snowflake.snowpark import Session
 
 # ── Config ───────────────────────────────────────────────────────────────────
-ACCOUNT   = "SFSENORTHAMERICA-TBSMITH-AWS1"
-USER      = "TRASMITH"
+ACCOUNT   = "<your-account-identifier>"
+USER      = "<your-username>"
 ROLE      = "ACCOUNTADMIN"
 DATABASE  = "ML_DEMO"
 SCHEMA    = "ML_CHURN"
@@ -208,14 +208,15 @@ def save_checkpoint(data: dict):
 
 def write_ground_truth(session: Session, request_ids: list, labels: list, overwrite: bool = False):
     df = pd.DataFrame({"request_id": request_ids, "churned": labels})
+    if overwrite:
+        session.sql(f'TRUNCATE TABLE IF EXISTS {DATABASE}.{SCHEMA}.{GROUND_TRUTH_TABLE}').collect()
     session.write_pandas(
         df,
         table_name=GROUND_TRUTH_TABLE,
         database=DATABASE,
         schema=SCHEMA,
-        overwrite=overwrite,
-        auto_create_table=True,
-        quote_identifiers=False,
+        overwrite=False,
+        quote_identifiers=True,
     )
     logging.info("Wrote %d ground truth rows (overwrite=%s)", len(df), overwrite)
 
@@ -259,8 +260,15 @@ def main():
     logging.info("Connected: %s / %s.%s", session.get_current_role(),
                  session.get_current_database(), session.get_current_schema())
 
-    # Wait for inference services to be READY (handles cold-start after auto-suspend)
-    logging.info("Checking service readiness...")
+    # Resume services if suspended (auto_resume handles it on traffic, but we check explicitly)
+    for svc in [SERVICE_V1, SERVICE_V2]:
+        try:
+            session.sql(f"ALTER SERVICE {svc} RESUME").collect()
+            logging.info("Resumed %s", svc.split('.')[-1])
+        except Exception:
+            pass  # already running
+
+    logging.info("Waiting for services to become READY...")
     wait_for_services(session)
 
     gateway_url = get_gateway_url(session)
